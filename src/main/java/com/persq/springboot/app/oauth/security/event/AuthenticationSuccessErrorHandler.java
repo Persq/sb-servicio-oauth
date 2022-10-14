@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import com.persq.springboot.app.commons.usuarios.models.entity.Usuario;
 import com.persq.springboot.app.oauth.services.IUsuarioService;
 
+import brave.Tracer;
 import feign.FeignException;
 
 @Component
@@ -22,6 +23,9 @@ public class AuthenticationSuccessErrorHandler implements AuthenticationEventPub
 
 	@Autowired
 	private IUsuarioService usuarioService;
+	
+	@Autowired
+	private Tracer tracer;
 	
 	@Override
 	public void publishAuthenticationSuccess(Authentication authentication) {
@@ -70,11 +74,13 @@ public class AuthenticationSuccessErrorHandler implements AuthenticationEventPub
 			
 			if(usuario.getIntentos() >= 3) {
 				String errorMaxIntentos = String.format("El usuario %s des-habilitado por máximos intentos.", usuario.getUsername());
+				
 				log.error(errorMaxIntentos);
 				errors.append(" - " + errorMaxIntentos);
 				usuario.setEnabled(false);
 			}
 			
+			tracer.currentSpan().tag("error.mensaje", errors.toString());
 			usuarioService.update(usuario, usuario.getId());
 			
 		} catch (FeignException e) {
